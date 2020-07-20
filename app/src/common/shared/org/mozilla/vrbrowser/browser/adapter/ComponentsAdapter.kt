@@ -5,6 +5,7 @@
 
 package org.mozilla.vrbrowser.browser.adapter
 
+import android.util.Log
 import mozilla.components.browser.state.action.EngineAction
 import mozilla.components.browser.state.action.TabListAction
 import mozilla.components.browser.state.state.ContentState
@@ -15,10 +16,13 @@ import mozilla.components.browser.state.store.BrowserStore
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.vrbrowser.browser.components.GeckoEngineSession
 import org.mozilla.vrbrowser.browser.engine.Session
+import org.mozilla.vrbrowser.utils.SystemUtils
 
 class ComponentsAdapter private constructor(
         val store: BrowserStore = BrowserStore()
 ) {
+    private val LOGTAG = SystemUtils.createLogtag(ComponentsAdapter::class.java)
+
     companion object {
         private val instance: ComponentsAdapter = ComponentsAdapter()
 
@@ -27,9 +31,17 @@ class ComponentsAdapter private constructor(
     }
 
     fun addSession(session: Session) {
-        store.dispatch(TabListAction.AddTabAction(
-                tab = session.toTabSessionState()
-        ))
+        val tab = session.toTabSessionState()
+        if (store.state.tabs.stream().noneMatch {
+                    it.id == tab.id
+        }) {
+            store.dispatch(TabListAction.AddTabAction(
+                    tab = tab
+            ))
+
+        } else {
+            Log.e(LOGTAG, "Duplicated session add attempt: " + tab.id)
+        }
     }
 
     fun removeSession(id: String) {
