@@ -113,6 +113,20 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
     static final int SESSION_DO_NOT_OPEN = 1;
 
     @NonNull
+    static Session createWebExtensionSession(Context aContext, GeckoRuntime aRuntime, @NonNull SessionSettings aSettings, @Session.SessionOpenModeFlags int aOpenMode, @NonNull SessionChangeListener listener) {
+        Session session = new Session(aContext, aRuntime, aSettings);
+        session.mState.mIsWebExtensionSession = true;
+        session.addSessionChangeListener(listener);
+        listener.onSessionAdded(session);
+        if (aOpenMode == Session.SESSION_OPEN) {
+            session.openSession();
+            session.setActive(true);
+        }
+
+        return session;
+    }
+
+    @NonNull
     static Session createSession(Context aContext, GeckoRuntime aRuntime, @NonNull SessionSettings aSettings, @Session.SessionOpenModeFlags int aOpenMode, @NonNull SessionChangeListener listener) {
         Session session = new Session(aContext, aRuntime, aSettings);
         session.addSessionChangeListener(listener);
@@ -503,6 +517,10 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
         dumpAllState();
 
         mState.setActive(true);
+
+        if (!mState.mIsWebExtensionSession) {
+            mRuntime.getWebExtensionController().setTabActive(mState.mSession, true);
+        }
     }
 
 
@@ -592,7 +610,7 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
         aState.setActive(false);
         mFirstContentfulPaint = false;
 
-        mSessionChangeListeners.forEach(listener -> listener.onSessionClosed(aState.mId));
+        mSessionChangeListeners.forEach(listener -> listener.onSessionClosed(this));
     }
 
     public void captureBitmap() {
@@ -731,6 +749,10 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
         return mFirstContentfulPaint;
     }
 
+    public boolean isWebExtensionSession() {
+        return mState.mIsWebExtensionSession;
+    }
+
     @Nullable
     public Media getFullScreenVideo() {
         for (Media media: mState.mMediaElements) {
@@ -809,6 +831,9 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
         if (mState.mSession != null) {
             mState.mSession.setActive(aActive);
             mState.setActive(aActive);
+            if (!mState.mIsWebExtensionSession) {
+                mRuntime.getWebExtensionController().setTabActive(mState.mSession, aActive);
+            }
 
         } else if (aActive) {
             restore();
@@ -905,7 +930,6 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
     public String getId() {
         return mState.mId;
     }
-
 
     public boolean isPrivateMode() {
         if (mState.mSession != null) {
@@ -1052,6 +1076,8 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
 
         setPopUpState(SessionState.POPUP_UNUSED);
         setDrmState(SessionState.DRM_UNUSED);
+
+        mState.mIsWebExtensionSession = aUri.startsWith(UrlUtils.WEB_EXTENSION_URL);
 
         mState.mPreviousUri = mState.mUri;
         mState.mUri = aUri;
@@ -1242,7 +1268,9 @@ public class Session implements ContentBlocking.Delegate, GeckoSession.Navigatio
 
     @Override
     public void onCloseRequest(@NonNull GeckoSession aSession) {
-
+        for (GeckoSession.ContentDelegate listener : mContentListeners) {
+            listener.onCloseRequest(aSession);
+        }
     }
 
     @Override
