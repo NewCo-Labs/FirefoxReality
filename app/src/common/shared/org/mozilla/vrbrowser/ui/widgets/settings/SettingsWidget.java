@@ -34,7 +34,6 @@ import org.mozilla.vrbrowser.audio.AudioEngine;
 import org.mozilla.vrbrowser.browser.Accounts;
 import org.mozilla.vrbrowser.browser.SettingsStore;
 import org.mozilla.vrbrowser.browser.engine.Session;
-import org.mozilla.vrbrowser.browser.engine.SessionStore;
 import org.mozilla.vrbrowser.databinding.SettingsBinding;
 import org.mozilla.vrbrowser.db.SitePermission;
 import org.mozilla.vrbrowser.telemetry.GleanMetricsService;
@@ -47,8 +46,6 @@ import org.mozilla.vrbrowser.ui.widgets.dialogs.UIDialog;
 import org.mozilla.vrbrowser.utils.RemoteProperties;
 import org.mozilla.vrbrowser.utils.StringUtils;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -141,11 +138,6 @@ public class SettingsWidget extends UIDialog implements SettingsView.Delegate {
                 mAudio.playSound(AudioEngine.Sound.CLICK);
             }
 
-            onDismiss();
-        });
-
-        mBinding.reportIssueButton.setOnClickListener(v -> {
-            onSettingsReportClick();
             onDismiss();
         });
 
@@ -285,32 +277,6 @@ public class SettingsWidget extends UIDialog implements SettingsView.Delegate {
 
     private void onSettingsPrivacyClick() {
         showView(SettingsView.SettingViewType.PRIVACY);
-    }
-
-    private void onSettingsReportClick() {
-        Session session = SessionStore.get().getActiveSession();
-        String url = session.getCurrentUri();
-
-        try {
-            if (url == null) {
-                // In case the user had no active sessions when reporting, just leave the URL field empty.
-                url = "";
-            } else if (url.startsWith("jar:") || url.startsWith("resource:") || url.startsWith("about:") || url.startsWith("data:")) {
-                url = "";
-            } else if (session.isHomeUri(url)) {
-                // Use the original URL (without any hash).
-                url = session.getHomeUri();
-            }
-
-            url = URLEncoder.encode(url, "UTF-8");
-
-        } catch (UnsupportedEncodingException e) {
-            Log.e(LOGTAG, "Cannot encode URL");
-        }
-
-        mWidgetManager.openNewTabForeground(getContext().getString(R.string.private_report_url, url));
-
-        onDismiss();
     }
 
     private void manageAccount() {
